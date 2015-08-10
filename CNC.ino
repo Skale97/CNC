@@ -12,14 +12,14 @@ char space[50] = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
 volatile byte *pwmx;
 volatile byte *pwmy;
 volatile byte *pwmz;
-int8_t lut[4][4] = {{0, 1, -1, 0}, { -1, 0, 0, 1}, {1, 0, 0, -1}, {0, -1, 1, 0}};
+char lut[4][4] = {{0, 1, -1, 0}, { -1, 0, 0, 1}, {1, 0, 0, -1}, {0, -1, 1, 0}};
 bool exitMenu = false;
-int xpos = 0;
-int ypos = 0;
-int zpos = 0;
-int xdes = 0;
-int ydes = 0;
-int zdes = 0;
+volatile int xpos = 0;
+volatile int ypos = 0;
+volatile int zpos = 0;
+volatile int xdes = 0;
+volatile int ydes = 0;
+volatile int zdes = 0;
 
 volatile byte xs = 0;
 volatile byte ys = 0;
@@ -31,7 +31,8 @@ volatile byte zls = 0;
 bool AutoMove = false;
 bool ConstData = false;
 
-int k = 0;
+volatile byte k = 0;
+byte cs = 0;
 
 void setup() {
   Serial.begin(57600);
@@ -58,10 +59,10 @@ void setup() {
   TCCR1A = B00000000;
   TCCR1B = B00001011;
   TCCR1C = B00000000;
-  OCR1A = 5000;
-  TIMSK1 = B00000001;
+  OCR1A = 1251;
+  TIMSK1 = B00000010;
 
-  //sei();
+  interrupts();
 
   *pwmx = 50;
   *pwmy = 125;
@@ -82,9 +83,36 @@ void loop() {
     *pwmz = 0;
     menu();
   }
-  if ((k >= 100) && ConstData) {
+  if ((cs >= 8) && ConstData) {
+    cs = 0;
+    Serial.print(space);
+    Serial.print("xc: ");
+    Serial.print(xpos);
+    Serial.print("   yc: ");
+    Serial.print(ypos);
+    Serial.print("   zc: ");
+    Serial.print(zpos);
+    Serial.print("\n");
+    Serial.print("xd: ");
+    Serial.print(xdes);
+    Serial.print("   yd: ");
+    Serial.print(ydes);
+    Serial.print("   zd: ");
+    Serial.print(zdes);
+    Serial.print("\n");
+    Serial.print("xp: ");
+    Serial.print(*pwmx);
+    Serial.print("   yp: ");
+    Serial.print(*pwmx);
+    Serial.print("   zp: ");
+    Serial.print(*pwmx);
+  }
+  if (k >= 2) {
     k = 0;
-    Serial.print("a");
+    cs++;
+    if (AutoMove) {
+      Serial.print("a");
+    }
   }
 }
 
@@ -133,7 +161,8 @@ void menu() {
     else Serial.print("O");
     Serial.print("\n14 - Go to zero");
     Serial.print("\n15 - Dismount z");
-    Serial.print("\n16 - EXIT\n");
+    Serial.print("\n16 - Refresh");
+    Serial.print("\n17 - EXIT\n");
 
     while (Serial.available() <= 0);
     Serial.print(space);
@@ -246,7 +275,7 @@ void menu() {
     else if (buff == 15) {
 
     }
-    else if (buff == 16) {
+    else if (buff == 17) {
       exitMenu = true;
       Serial.print("Write any char to enter menu");
     }
@@ -269,24 +298,24 @@ int serialInt(int last) {
   return integer;
 }
 
-ISR(TIM1_COMPA_vect) {
+ISR(TIMER1_COMPA_vect) {
   k++;
 }
 
-ISR(PCIN0_vect) {
+ISR(PCINT0_vect) {
   zs = PINB & B00000011;
   zpos += lut[zs][zls];
   zls = zs;
 }
 
-ISR(PCIN1_vect) {
+ISR(PCINT1_vect) {
   ys = PINC & B00000011;
   ypos += lut[ys][yls];
   yls = ys;
 }
 
-ISR(PCIN2_vect) {
-  xs = (PIND >> 3) & B00000011;
+ISR(PCINT2_vect) {
+  xs = (PIND >> 2) & B00000011;
   xpos += lut[xs][xls];
   xls = xs;
 }
