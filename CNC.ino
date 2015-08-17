@@ -28,6 +28,16 @@ volatile byte xls = 0;
 volatile byte yls = 0;
 volatile byte zls = 0;
 
+int xerr = 0;
+int yerr = 0;
+int zerr = 0;
+int xsumerr = 0;
+int ysumerr = 0;
+int zsumerr = 0;
+
+int Kp = 0;
+int Ki = 0;
+
 bool AutoMove = false;
 bool ConstData = false;
 
@@ -111,7 +121,16 @@ void loop() {
     k = 0;
     cs++;
     if (AutoMove) {
-      Serial.print("a");
+      xerrx = xdes - xpos;
+      yerry = ydes - ypos;
+      zerrz = zdes - zpos;
+      xsumerr += xerr/100;
+      ysumerr += yerr/100;
+      zsumerr += zerr/100;
+
+      *pwmx = Kp / 100 * xerr + Ki * xsumerr;
+      *pwmy = Kp / 100 * yerr + Ki * ysumerr;
+      *pwmz = Kp / 100 * zerr + Ki * zsumerr;
     }
   }
 }
@@ -153,16 +172,18 @@ void menu() {
     if (PIND & 16) Serial.print("P");
     else if (PIND & 128) Serial.print("N");
     else Serial.print("S");
-    Serial.print("\n12 - Auto move: ");
+    Serial.print("\n12 - Dir Kp/100: ");
+    Serial.print("\n13 - Dir Ki/100: ");
+    Serial.print("\n14 - Auto move: ");
     if (AutoMove) Serial.print("I");
     else Serial.print("O");
-    Serial.print("\n13 - Const data: ");
+    Serial.print("\n15 - Const data: ");
     if (ConstData) Serial.print("I");
     else Serial.print("O");
-    Serial.print("\n14 - Go to zero");
-    Serial.print("\n15 - Dismount z");
-    Serial.print("\n16 - Refresh");
-    Serial.print("\n17 - EXIT\n");
+    Serial.print("\n16 - Go to zero");
+    Serial.print("\n17 - Dismount z");
+    Serial.print("\n18 - Refresh");
+    Serial.print("\n19 - EXIT\n");
 
     while (Serial.available() <= 0);
     Serial.print(space);
@@ -252,6 +273,12 @@ void menu() {
       }
     }
     else if (buff == 12) {
+      Kp = serialInt(Kp);
+    }
+    else if (buff == 13) {
+      Ki = serialInt(Ki);
+    }
+    else if (buff == 14) {
       Serial.print("0 - O, 1 - I, 2 - canc\n");
       while (Serial.available() <= 0);
       buff = Serial.read();
@@ -260,7 +287,7 @@ void menu() {
         else if (buff == 1) AutoMove = true;
       }
     }
-    else if (buff == 13) {
+    else if (buff == 15) {
       Serial.print("0 - O, 1 - I, 2 - canc\n");
       while (Serial.available() <= 0);
       buff = Serial.read();
@@ -269,13 +296,13 @@ void menu() {
         else if (buff == 1) ConstData = true;
       }
     }
-    else if (buff == 14) {
-
-    }
-    else if (buff == 15) {
+    else if (buff == 16) {
 
     }
     else if (buff == 17) {
+
+    }
+    else if (buff == 18) {
       exitMenu = true;
       Serial.print("Write any char to enter menu");
     }
