@@ -4,8 +4,8 @@
 #define Y_positive PORTC |= 16; PORTC &= ~4;
 #define Y_negative PORTC |= 4; PORTC &= ~16;
 #define Y_stop PORTC &= ~20;
-#define Z_positive PORTD |= 16; PORTD &= ~128;
-#define Z_negative PORTD |= 128; PORTD &= ~16;
+#define Z_positive PORTD |= 128; PORTD &= ~16;
+#define Z_negative PORTD |= 16; PORTD &= ~128;
 #define Z_stop PORTD &= ~144;
 
 const char space[50] = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
@@ -35,6 +35,12 @@ volatile byte X_last_signal = 0;
 volatile byte Y_last_signal = 0;
 volatile byte Z_last_signal = 0;
 
+float X_out = 0;
+float X_Kp = 0.1;
+float X_Ki = 0.001;
+float X_Kd = 0.005;
+float X_Integrator_state = 0;
+
 float Y_out = 0;
 float Y_Kp = 0.1;
 float Y_Ki = 0.001;
@@ -42,9 +48,9 @@ float Y_Kd = 0.005;
 float Y_Integrator_state = 0;
 
 float Z_out = 0;
-float Z_Kp = 0.1;
-float Z_Ki = 0.001;
-float Z_Kd = 0.005;
+float Z_Kp = 0.01;
+float Z_Ki = 0.0001;
+float Z_Kd = 0.0005;
 float Z_Integrator_state = 0;
 
 bool AutoMove = false;
@@ -129,28 +135,49 @@ void loop() {
     k = 0;
     cs++;
     if (AutoMove) {
+      X_error = X_destination - X_position;
       Y_error = Y_destination - Y_position;
       Z_error = Z_destination - Z_position;
 
-      if (Y_error == 0) Y_Integrator_state = 0;
-      if (Z_error == 0) Z_Integrator_state = 0;
+      if (X_error / 10 == 0) X_Integrator_state = 0;
+      if (Y_error / 10 == 0) Y_Integrator_state = 0;
+      if (Z_error / 10 == 0) Z_Integrator_state = 0;
 
+      X_out = (X_Kp * X_error + X_Ki * X_Integrator_state + X_Kd * (X_last_error - X_error));
       Y_out = (Y_Kp * Y_error + Y_Ki * Y_Integrator_state + Y_Kd * (Y_last_error - Y_error));
-      Z_out = (Z_Kp * Y_error + Z_Ki * Z_Integrator_state + Z_Kd * (Z_last_error - Z_error));
+      Z_out = (Z_Kp * Z_error + Z_Ki * Z_Integrator_state + Z_Kd * (Z_last_error - Z_error));
 
-      Y_Integrator_state += Y_error;
-      Z_Integrator_state += Z_error;
 
+      if (X_Integrator_state < 250) X_Integrator_state += X_error;
+      if (Y_Integrator_state < 250) Y_Integrator_state += Y_error;
+      if (Z_Integrator_state < 250) Z_Integrator_state += Z_error;
+
+      X_last_error = X_error;
       Y_last_error = Y_error;
       Z_last_error = Z_error;
 
+      if (X_out > 0) {
+        if (X_out > 183) *pwmx = 255;
+        else *pwmx = X_out + 72;
+        X_positive
+      }
+      else if (X_out < 0) {
+        if (X_out < -183) *pwmx = 255;
+        else *pwmx = -X_out + 72;
+        X_negative
+      }
+      else {
+        *pwmx = 0;
+        X_stop
+      }
+
       if (Y_out > 0) {
         if (Y_out > 189) *pwmy = 255;
-        else *pwmy = Y_out + 561;
+        else *pwmy = Y_out + 56;
         Y_positive
       }
       else if (Y_out < 0) {
-        if (Y_out < -89) *pwmy = 255;
+        if (Y_out < -189) *pwmy = 255;
         else *pwmy = -Y_out + 56;
         Y_negative
       }
@@ -160,17 +187,17 @@ void loop() {
       }
 
       if (Z_out > 0) {
-        if (Z_out > 189) *pwmy = 255;
-        else *pwmy = Z_out + 561;
+        if (Z_out > 205) *pwmz = 255;
+        else *pwmz = Z_out + 50;
         Z_positive
       }
       else if (Z_out < 0) {
-        if (Z_out < -89) *pwmy = 255;
-        else *pwmy = -Z_out + 56;
+        if (Z_out < -205) *pwmz = 255;
+        else *pwmz = -Z_out + 50;
         Z_negative
       }
       else {
-        *pwmy = 0;
+        *pwmz = 0;
         Z_stop
       }
     }
@@ -210,8 +237,8 @@ void menu() {
     else if (PINC & 4) strbuff += "N";
     else strbuff += "S";
     strbuff += "\n11 - Dir z: ";
-    if (PIND & 16) strbuff += "P";
-    else if (PIND & 128) strbuff += "N";
+    if (PIND & 128) strbuff += "P";
+    else if (PIND & 16) strbuff += "N";
     else strbuff += "S";
     strbuff += "\n12 - Auto move: ";
     if (AutoMove) strbuff += "I";
@@ -358,6 +385,8 @@ int serialInt(int last) {
     while (Serial.available() <= 0);
     integer += Serial.read();
   }
+  Serial.print(space);
+  Serial.print(space);
   return integer;
 }
 
