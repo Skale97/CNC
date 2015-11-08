@@ -36,8 +36,8 @@ volatile byte Y_last_signal = 0;
 volatile byte Z_last_signal = 0;
 
 float X_out = 0;
-float X_Kp = 0.1;
-float X_Ki = 0.001;
+float X_Kp = 0.08;
+float X_Ki = 0.005;
 float X_Kd = 0.005;
 float X_Integrator_state = 0;
 
@@ -55,6 +55,7 @@ float Z_Integrator_state = 0;
 
 bool AutoMove = false;
 bool ConstData = false;
+bool MoveOnData = false;
 
 volatile byte k = 0;
 byte cs = 0;
@@ -79,7 +80,7 @@ void setup() {
   TIMSK2 = B00000000;
 
   TCCR2A = B10100001;
-  TCCR2B = B00000110;
+  TCCR2B = B00000101;
   pwmx = &OCR2A;
   TIMSK2 = B00000000;
 
@@ -94,18 +95,41 @@ void setup() {
   ConstData = true;
 
   Serial.print(k);
-  Serial.print("Write any char to enter menu\n");
+  Serial.print(F("Write any char to enter menu\n"));
 }
 
 void loop() {
   if (Serial.available() > 0) {
-    Serial.print(k);
-    Serial.print(space);
     Serial.read();
-    *pwmx = 0;
-    *pwmy = 0;
-    *pwmz = 0;
-    menu();
+    if (MoveOnData) {
+      Serial.print("X");
+      while (Serial.available() <= 0);
+      if (Serial.peek() == 255) MoveOnData = false;
+      else {
+        X_destination = Serial.read() * 100;
+        while (Serial.available() <= 0);
+        X_destination += Serial.read();
+
+        while (Serial.available() <= 0);
+        Y_destination = Serial.read() * 100;
+        while (Serial.available() <= 0);
+        Y_destination += Serial.read();
+
+        while (Serial.available() <= 0);
+        Z_destination = Serial.read() * 100;
+        while (Serial.available() <= 0);
+        Z_destination += Serial.read();
+        AutoMove = true;
+        Serial.print("DONE");
+      }
+    }
+    else {
+      Serial.print(space);
+      *pwmx = 0;
+      *pwmy = 0;
+      *pwmz = 0;
+      menu();
+    }
   }
   if ((cs >= 40) && ConstData) {
     cs = 0;
@@ -135,13 +159,18 @@ void loop() {
     k = 0;
     cs++;
     if (AutoMove) {
+      if (X_error == Y_error == Z_error == X_last_error == Y_last_error == Z_last_error == 0) {
+        Serial.print("1");
+        AutoMove = false;
+      }
+
       X_error = X_destination - X_position;
       Y_error = Y_destination - Y_position;
       Z_error = Z_destination - Z_position;
 
-      if (X_error / 10 == 0) X_Integrator_state = 0;
-      if (Y_error / 10 == 0) Y_Integrator_state = 0;
-      if (Z_error / 10 == 0) Z_Integrator_state = 0;
+      if (X_error == 0) X_Integrator_state = 0;
+      if (Y_error == 0) Y_Integrator_state = 0;
+      if (Z_error == 0) Z_Integrator_state = 0;
 
       X_out = (X_Kp * X_error + X_Ki * X_Integrator_state + X_Kd * (X_last_error - X_error));
       Y_out = (Y_Kp * Y_error + Y_Ki * Y_Integrator_state + Y_Kd * (Y_last_error - Y_error));
@@ -157,13 +186,13 @@ void loop() {
       Z_last_error = Z_error;
 
       if (X_out > 0) {
-        if (X_out > 183) *pwmx = 255;
-        else *pwmx = X_out + 72;
+        if (X_out > 150) *pwmx = 245;
+        else *pwmx = X_out + 95;
         X_positive
       }
       else if (X_out < 0) {
-        if (X_out < -183) *pwmx = 255;
-        else *pwmx = -X_out + 72;
+        if (X_out < -150) *pwmx = 245;
+        else *pwmx = -X_out + 95;
         X_negative
       }
       else {
@@ -172,12 +201,12 @@ void loop() {
       }
 
       if (Y_out > 0) {
-        if (Y_out > 189) *pwmy = 255;
+        if (Y_out > 199) *pwmy = 255;
         else *pwmy = Y_out + 56;
         Y_positive
       }
       else if (Y_out < 0) {
-        if (Y_out < -189) *pwmy = 255;
+        if (Y_out < -199) *pwmy = 255;
         else *pwmy = -Y_out + 56;
         Y_negative
       }
@@ -209,47 +238,50 @@ void menu() {
   exitMenu = false;
   byte buff = 0;
   while (!exitMenu) {
-    strbuff = " ";
-    strbuff += "0  - Curr x: ";
+    strbuff = "\n";
+    strbuff += F("0  - Curr x: ");
     strbuff += X_position;
-    strbuff += "\n1  - Curr y: ";
+    strbuff += F("\n1  - Curr y: ");
     strbuff += Y_position;
-    strbuff += "\n2  - Curr z: ";
+    strbuff += F("\n2  - Curr z: ");
     strbuff += Z_position;
-    strbuff += "\n3  - Dest x: ";
+    strbuff += F("\n3  - Dest x: ");
     strbuff += X_destination;
-    strbuff += "\n4  - Dest y: ";
+    strbuff += F("\n4  - Dest y: ");
     strbuff += Y_destination;
-    strbuff += "\n5  - Dest z: ";
+    strbuff += F("\n5  - Dest z: ");
     strbuff += Z_destination;
-    strbuff += "\n6  - PWM x: ";
+    strbuff += F("\n6  - PWM x: ");
     strbuff += *pwmx;
-    strbuff += "\n7  - PWM y: ";
+    strbuff += F("\n7  - PWM y: ");
     strbuff += *pwmy;
-    strbuff += "\n8  - PWM z: ";
+    strbuff += F("\n8  - PWM z: ");
     strbuff += *pwmz;
-    strbuff += "\n9  - Dir x: ";
-    if (PINC & 32) strbuff += "P";
-    else if (PINC & 8) strbuff += "N";
-    else strbuff += "S";
-    strbuff += "\n10 - Dir y: ";
-    if (PINC & 16) strbuff += "P";
-    else if (PINC & 4) strbuff += "N";
-    else strbuff += "S";
-    strbuff += "\n11 - Dir z: ";
-    if (PIND & 128) strbuff += "P";
-    else if (PIND & 16) strbuff += "N";
-    else strbuff += "S";
-    strbuff += "\n12 - Auto move: ";
-    if (AutoMove) strbuff += "I";
-    else strbuff += "O";
-    strbuff += "\n13 - Const data: ";
-    if (ConstData) strbuff += "I";
-    else strbuff += "O";
-    strbuff += "\n14 - Go to zero";
-    strbuff += "\n15 - Dismount z";
-    strbuff += "\n16 - Refresh";
-    strbuff += "\n17 - EXIT\n";
+    strbuff += F("\n9  - Dir x: ");
+    if (PINC & 32) strbuff += F("P");
+    else if (PINC & 8) strbuff += F("N");
+    else strbuff += F("S");
+    strbuff += F("\n10 - Dir y: ");
+    if (PINC & 16) strbuff += F("P");
+    else if (PINC & 4) strbuff += F("N");
+    else strbuff += F("S");
+    strbuff += F("\n11 - Dir z: ");
+    if (PIND & 128) strbuff += F("P");
+    else if (PIND & 16) strbuff += F("N");
+    else strbuff += F("S");
+    strbuff += F("\n12 - Auto move: ");
+    if (AutoMove) strbuff += F("I");
+    else strbuff += F("O");
+    strbuff += F("\n13 - Const data: ");
+    if (ConstData) strbuff += F("I");
+    else strbuff += F("O");
+    strbuff += F("\n14 - Move on data: ");
+    if (MoveOnData) strbuff += F("I");
+    else strbuff += F("O");
+    strbuff += F("\n15 - Go to zero");
+    strbuff += F("\n16 - Dismount z");
+    strbuff += F("\n17 - Refresh");
+    strbuff += F("\n18 - EXIT\n");
     Serial.print(strbuff);
     while (Serial.available() <= 0);
     Serial.print(space);
@@ -339,33 +371,24 @@ void menu() {
       }
     }
     else if (buff == 12) {
-      Serial.print("0 - O, 1 - I, 2 - canc\n");
-      while (Serial.available() <= 0);
-      buff = Serial.read();
-      if (buff != 2) {
-        if (buff == 0) AutoMove = false;
-        else if (buff == 1) AutoMove = true;
-      }
+      AutoMove = OnOff(AutoMove);
     }
     else if (buff == 13) {
-      Serial.print("0 - O, 1 - I, 2 - canc\n");
-      while (Serial.available() <= 0);
-      buff = Serial.read();
-      if (buff != 2) {
-        if (buff == 0) ConstData = false;
-        else if (buff == 1) ConstData = true;
-      }
+      ConstData = OnOff(ConstData);
     }
     else if (buff == 14) {
-
+      MoveOnData = OnOff(MoveOnData);
     }
     else if (buff == 15) {
 
     }
     else if (buff == 16) {
-      //Refresh
+
     }
     else if (buff == 17) {
+      //Refresh
+    }
+    else if (buff == 18) {
       exitMenu = true;
       Serial.print("Write any char to enter menu");
     }
@@ -388,6 +411,18 @@ int serialInt(int last) {
   Serial.print(space);
   Serial.print(space);
   return integer;
+}
+
+bool OnOff(bool a) {
+  bool b = a;
+  Serial.print("0 - O, 1 - I, 2 - canc\n");
+  while (Serial.available() <= 0);
+  byte buff = Serial.read();
+  if (buff != 2) {
+    if (buff == 0) b = false;
+    else if (buff == 1) b = true;
+  }
+  return b;
 }
 
 ISR(TIMER1_COMPA_vect) {
