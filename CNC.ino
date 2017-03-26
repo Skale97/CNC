@@ -159,10 +159,9 @@ void loop() {
     k = 0;
     cs++;
     if (AutoMove) {
-      if (X_error == Y_error == Z_error == X_last_error == Y_last_error == Z_last_error == 0) {
-        Serial.print("1");
-        AutoMove = false;
-      }
+      X_last_error = X_error;
+      Y_last_error = Y_error;
+      Z_last_error = Z_error;
 
       X_error = X_destination - X_position;
       Y_error = Y_destination - Y_position;
@@ -181,18 +180,14 @@ void loop() {
       if (Y_Integrator_state < 250) Y_Integrator_state += Y_error;
       if (Z_Integrator_state < 250) Z_Integrator_state += Z_error;
 
-      X_last_error = X_error;
-      Y_last_error = Y_error;
-      Z_last_error = Z_error;
-
       if (X_out > 0) {
-        if (X_out > 150) *pwmx = 245;
-        else *pwmx = X_out + 95;
+        if (X_out > 140) *pwmx = 245;
+        else *pwmx = X_out + 105;
         X_positive
       }
       else if (X_out < 0) {
-        if (X_out < -150) *pwmx = 245;
-        else *pwmx = -X_out + 95;
+        if (X_out < -140) *pwmx = 245;
+        else *pwmx = -X_out + 105;
         X_negative
       }
       else {
