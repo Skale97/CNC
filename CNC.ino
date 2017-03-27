@@ -176,9 +176,9 @@ void loop() {
       Z_out = (Z_Kp * Z_error + Z_Ki * Z_Integrator_state + Z_Kd * (Z_last_error - Z_error));
 
 
-      if (X_Integrator_state < 250) X_Integrator_state += X_error;
-      if (Y_Integrator_state < 250) Y_Integrator_state += Y_error;
-      if (Z_Integrator_state < 250) Z_Integrator_state += Z_error;
+      if (X_Integrator_state < 250 && X_Integrator_state >-250) X_Integrator_state += X_error;
+      if (Y_Integrator_state < 250 && Y_Integrator_state >-250) Y_Integrator_state += Y_error;
+      if (Z_Integrator_state < 250 && Z_Integrator_state >-250) Z_Integrator_state += Z_error;
 
       if (X_out > 0) {
         if (X_out > 140) *pwmx = 245;
